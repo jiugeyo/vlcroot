@@ -44,7 +44,7 @@ marker = "func parseRequest(in []byte, kernelSettings *InitIn)"
 handler = (
     "var unknownOpcodeHandler = operationHandler{\n"
     "\tName: \"UNKNOWN\",\n"
-    "\tFunc: func(req *request) { req.status = ENOSYS },\n"
+    "\tFunc: func(_ *protocolServer, req *request) { req.status = ENOSYS },\n"
     "}\n\n"
 )
 if marker not in src:
