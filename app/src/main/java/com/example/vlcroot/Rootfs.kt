@@ -87,10 +87,12 @@ object Rootfs {
     }
 
     fun isWorking(): Boolean {
-        val mounts = RootShell.exec("grep ' ${MOUNT} ' /proc/mounts")
-        if (mounts.isBlank()) return false
-        val probe = RootShell.exec("ls ${RootShell.quote("$MOUNT/data")} >/dev/null 2>&1 && echo ok")
-        return probe.contains("ok")
+        // 必须用 su -M（全局 namespace）看 /proc/mounts；
+        // 普通 su -c 在另一个 namespace，看不到全局挂载，会误判成未挂载而重复挂载。
+        val mounts = RootShell.execGlobal("grep ' $MOUNT ' /proc/mounts")
+        if (!mounts.contains(MOUNT)) return false
+        val pid = RootShell.execGlobal("pidof rootfsd")
+        return pid.isNotBlank()
     }
 
     fun isUnderMount(path: String): Boolean = path == MOUNT || path.startsWith("$MOUNT/")
@@ -98,7 +100,9 @@ object Rootfs {
     fun mapPath(path: String): String {
         if (!mounted) return path
         if (isUnderMount(path)) return path
-        if (path == "/data" || path.startsWith("/data/")) return MOUNT + path
+        // rootfsd 的 -source 是 /data，所以挂载根 = /data 本身
+        if (path == "/data") return MOUNT
+        if (path.startsWith("/data/")) return MOUNT + path.removePrefix("/data")
         return path
     }
 

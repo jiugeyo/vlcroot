@@ -42,9 +42,17 @@ object RootShell {
      * 用独立线程持续读 stdout，避免大输出（ls/cat）把管道写满导致死锁；
      * 等待超时则 destroy 子进程（例如 Magisk 授权弹窗一直没人点）。
      */
-    fun exec(command: String, timeoutMs: Long = 15_000L): String {
+    fun exec(command: String, timeoutMs: Long = 15_000L): String =
+        runSu(false, command, timeoutMs)
+
+    /** 在全局 mount namespace 下执行，用于看 su -M 挂出来的 FUSE 挂载 */
+    fun execGlobal(command: String, timeoutMs: Long = 15_000L): String =
+        runSu(true, command, timeoutMs)
+
+    private fun runSu(global: Boolean, command: String, timeoutMs: Long): String {
         return runCatching {
-            val process = ProcessBuilder(su(), "-c", command)
+            val argv = if (global) listOf(su(), "-M", "-c", command) else listOf(su(), "-c", command)
+            val process = ProcessBuilder(argv)
                 .redirectErrorStream(true)
                 .start()
 

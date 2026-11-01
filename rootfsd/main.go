@@ -16,9 +16,20 @@ import (
 
 type node struct {
 	fs.Inode
-	src string
-	uid uint32
-	gid uint32
+	src   string
+	mount string
+	uid   uint32
+	gid   uint32
+}
+
+// underMount reports whether p is the FUSE mountpoint itself or below it.
+// The mountpoint lives inside /data, so without this check the daemon would
+// try to lstat/open its own mount and deadlock (fuse_dentry_canonical_path).
+func underMount(p, mount string) bool {
+	if mount == "" {
+		return false
+	}
+	return p == mount || strings.HasPrefix(p, mount+string(os.PathSeparator))
 }
 
 func inodeOf(st os.FileInfo) uint64 {
@@ -54,6 +65,9 @@ func fillAttr(a *fuse.Attr, st os.FileInfo, uid, gid uint32) {
 }
 
 func (n *node) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	if underMount(n.src, n.mount) {
+		return syscall.ENOENT
+	}
 	st, err := os.Lstat(n.src)
 	if err != nil {
 		return fs.ToErrno(err)
@@ -67,6 +81,9 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		return nil, syscall.EINVAL
 	}
 	p := filepath.Join(n.src, name)
+	if underMount(p, n.mount) {
+		return nil, syscall.ENOENT
+	}
 	st, err := os.Lstat(p)
 	if err != nil {
 		return nil, fs.ToErrno(err)
@@ -76,17 +93,24 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		return nil, syscall.EACCES
 	}
 	fillAttr(&out.Attr, st, n.uid, n.gid)
-	child := &node{src: p, uid: n.uid, gid: n.gid}
+	child := &node{src: p, mount: n.mount, uid: n.uid, gid: n.gid}
 	return n.NewInode(ctx, child, fs.StableAttr{Mode: out.Attr.Mode, Ino: out.Attr.Ino}), 0
 }
 
 func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+	if underMount(n.src, n.mount) {
+		return nil, syscall.ENOENT
+	}
 	entries, err := os.ReadDir(n.src)
 	if err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	list := make([]fuse.DirEntry, 0, len(entries))
 	for _, e := range entries {
+		// 不要把挂载点自己列出来，避免 VLC 递归扫描时又走进 FUSE
+		if underMount(filepath.Join(n.src, e.Name()), n.mount) {
+			continue
+		}
 		info, err := e.Info()
 		if err != nil {
 			continue
@@ -107,6 +131,9 @@ type handle struct {
 }
 
 func (n *node) Open(ctx context.Context, flags uint32) (fs.FileHandle, uint32, syscall.Errno) {
+	if underMount(n.src, n.mount) {
+		return nil, 0, syscall.ENOENT
+	}
 	if flags&uint32(syscall.O_WRONLY|syscall.O_RDWR|syscall.O_CREAT|syscall.O_TRUNC) != 0 {
 		return nil, 0, syscall.EROFS
 	}
@@ -144,7 +171,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	root := &node{src: *source, uid: uint32(*uid), gid: uint32(*gid)}
+	root := &node{src: *source, mount: *mount, uid: uint32(*uid), gid: uint32(*gid)}
 
 	opts := &fs.Options{
 		MountOptions: fuse.MountOptions{

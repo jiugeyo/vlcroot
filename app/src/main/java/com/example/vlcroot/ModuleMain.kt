@@ -94,8 +94,8 @@ class ModuleMain : XposedModule() {
         hook(method).intercept { chain ->
             val file = chain.thisObject as File
             if (Rootfs.mounted && PathPolicy.looksLikeRootFile(file.path) && !Rootfs.isUnderMount(file.path)) {
-                // /data 深层目录 App 无法 realpath，直接返回原路径；后续由 addCustomDirectory 映射到挂载点
-                file.path
+                // /data 深层目录 App 无法 realpath，直接返回映射后的挂载点路径
+                Rootfs.mapPath(file.path)
             } else {
                 chain.proceed() as String
             }
@@ -108,8 +108,11 @@ class ModuleMain : XposedModule() {
         hook(method).intercept { chain ->
             val path = chain.args[0] as? String
             if (path != null && Rootfs.mounted) {
-                chain.proceed(arrayOf(Rootfs.mapPath(path)))
+                val mapped = Rootfs.mapPath(path)
+                log(Log.INFO, TAG, "custom dir: $path -> $mapped")
+                chain.proceed(arrayOf(mapped))
             } else {
+                log(Log.INFO, TAG, "custom dir raw (rootfs not mounted): $path")
                 chain.proceed()
             }
         }
