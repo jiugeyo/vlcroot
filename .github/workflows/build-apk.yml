@@ -7,7 +7,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 固定 24.04：ubuntu-latest 正在迁移到 26.04，Android SDK 的位置/内容不稳定
+    runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,12 +18,31 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Accept licenses & install SDK
+      # GitHub 的 ubuntu 镜像自带 Android SDK，直接用，避免第三方 action 失效
+      - name: Configure Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          SM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SM" ]; then
+            SM=$(find "$SDK/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n1)
+          fi
+          if [ -z "$SM" ] || [ ! -x "$SM" ]; then
+            echo "sdkmanager not found under $SDK"; find "$SDK" -maxdepth 3 -type d; exit 1
+          fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "SDKMANAGER=$SM" >> "$GITHUB_ENV"
+          echo "$(dirname "$SM")" >> "$GITHUB_PATH"
+          echo "$SDK/platform-tools" >> "$GITHUB_PATH"
+          echo "SDK=$SDK"
+          echo "SDKMANAGER=$SM"
+          ls "$SDK"
+          "$SM" --version
+
+      - name: Install SDK packages
+        run: |
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       # 缓存 debug keystore：保证每次构建出来的 APK 签名一致，
       # 后续升级模块可以直接覆盖安装。
@@ -34,6 +55,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Toolchain info
+        run: |
+          java -version
+          gradle --version
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
