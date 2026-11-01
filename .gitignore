@@ -8,3 +8,7 @@ captures/
 .cxx/
 rootfsd/vendor/
 rootfsd/go.sum
+*.jks
+*.keystore
+*.p12
+*.key

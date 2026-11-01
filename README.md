@@ -11,6 +11,22 @@
 
 GitHub Actions 的 **vlcroot-release-apk** artifact 是发行版 APK（`app-release.apk`，versionName 1.0）。升级可直接覆盖安装。
 
+### 签名
+
+发行版使用 `JGjiuge.key` 签名，私钥不提交到仓库，而是放在 GitHub Actions Secrets：
+
+1. 本地生成 base64（PowerShell）：
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\11204\Downloads\JGjiuge.key")) | Set-Clipboard
+   ```
+2. 仓库 **Settings → Secrets and variables → Actions → New repository secret**：
+   - `SIGNING_KEY_BASE64`：粘贴上面的 base64
+   - `SIGNING_STORE_PASSWORD`：自己设一个签名密码（CI 用它把私钥转成 PKCS#12）
+   - 可选 `SIGNING_KEY_ALIAS`：默认 `jgjiuge`
+3. 构建时 `scripts/extract_signing_key.py` 会解出证书/PKCS#8 私钥并生成临时 `.p12`，Gradle 用它签 release。
+
+> 之前 debug APK 的签名和这个 key 不同，首次安装 release 版需要先卸载旧模块。VLC 自身的数据库/自定义路径不受影响，重装模块后在 LSPosed 重新启用即可。
+
 ## 构建
 
 没有 Android Studio？看 **[BUILD-WITHOUT-STUDIO.md](BUILD-WITHOUT-STUDIO.md)**：用 GitHub Actions 云端出 APK。

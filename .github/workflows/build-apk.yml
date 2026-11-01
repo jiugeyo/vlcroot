@@ -87,6 +87,33 @@ jobs:
           java -version
           gradle --version
 
+      - name: Prepare signing keystore
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+        run: |
+          if [ -z "$SIGNING_KEY_BASE64" ]; then
+            echo "::error title=Missing SIGNING_KEY_BASE64::Add repository secret SIGNING_KEY_BASE64 (base64 of JGjiuge.key)"
+            exit 1
+          fi
+          if [ -z "$SIGNING_STORE_PASSWORD" ]; then
+            echo "::error title=Missing SIGNING_STORE_PASSWORD::Add repository secret SIGNING_STORE_PASSWORD (keystore password you choose)"
+            exit 1
+          fi
+          ALIAS="${SIGNING_KEY_ALIAS:-jgjiuge}"
+          echo "$SIGNING_KEY_BASE64" | base64 -d > "$RUNNER_TEMP/JGjiuge.key"
+          python3 scripts/extract_signing_key.py \
+            "$RUNNER_TEMP/JGjiuge.key" "$RUNNER_TEMP/release.p12" \
+            "$SIGNING_STORE_PASSWORD" "$ALIAS"
+          rm -f "$RUNNER_TEMP/JGjiuge.key"
+          {
+            echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.p12"
+            echo "RELEASE_STORE_PASSWORD=$SIGNING_STORE_PASSWORD"
+            echo "RELEASE_KEY_ALIAS=$ALIAS"
+            echo "RELEASE_KEY_PASSWORD=$SIGNING_STORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+
       - name: Build release APK
         run: |
           set -o pipefail
