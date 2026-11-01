@@ -27,9 +27,11 @@ jobs:
         run: |
           cd rootfsd
           go mod tidy
+          go mod vendor
+          python3 ../scripts/patch_go_fuse.py
           mkdir -p ../app/src/main/assets
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
-            go build -trimpath -ldflags="-s -w" -o ../app/src/main/assets/rootfsd-arm64 .
+            go build -mod=vendor -trimpath -ldflags="-s -w" -o ../app/src/main/assets/rootfsd-arm64 .
 
       # GitHub 的 ubuntu 镜像自带 Android SDK，直接用，避免第三方 action 失效
       - name: Configure Android SDK
