@@ -9,23 +9,18 @@
 
 ## 下载
 
-GitHub Actions 的 **vlcroot-release-apk** artifact 是发行版 APK（`app-release.apk`，versionName 1.0）。升级可直接覆盖安装。
+GitHub Actions 的 **vlcroot-unsigned-apk** artifact 是未签名发行包（`app-release-unsigned.apk`，versionName 1.0）。
 
 ### 签名
 
-发行版使用 `JGjiuge.key` 签名，私钥不提交到仓库，而是放在 GitHub Actions Secrets：
+构建产物**不含签名**，安装前用 MT 管理器注入：
 
-1. 本地生成 base64（PowerShell）：
-   ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\11204\Downloads\JGjiuge.key")) | Set-Clipboard
-   ```
-2. 仓库 **Settings → Secrets and variables → Actions → New repository secret**：
-   - `SIGNING_KEY_BASE64`：粘贴上面的 base64
-   - `SIGNING_STORE_PASSWORD`：自己设一个签名密码（CI 用它把私钥转成 PKCS#12）
-   - 可选 `SIGNING_KEY_ALIAS`：默认 `jgjiuge`
-3. 构建时 `scripts/extract_signing_key.py` 会解出证书/PKCS#8 私钥并生成临时 `.p12`，Gradle 用它签 release。
+1. MT 管理器里打开 `app-release-unsigned.apk`；
+2. 菜单 → **APK 签名** → 选择你的 key（如 `JGjiuge.key`）或新建签名；
+3. 建议勾选 **V1 + V2** 签名，保存后再安装；
+4. 以后升级也用同一个 key 签，才能覆盖安装。
 
-> 之前 debug APK 的签名和这个 key 不同，首次安装 release 版需要先卸载旧模块。VLC 自身的数据库/自定义路径不受影响，重装模块后在 LSPosed 重新启用即可。
+> 未签名 APK 不能直接安装；LSPosed 只认已签名 APK。VLC 自身的数据库/自定义路径与模块签名无关。
 
 ## 构建
 
@@ -33,7 +28,7 @@ GitHub Actions 的 **vlcroot-release-apk** artifact 是发行版 APK（`app-rele
 
 ## 使用
 
-1. 安装 release APK；
+1. 安装已用 MT 管理器签名的 APK；
 2. LSPosed/Vector 中启用模块，作用域勾选 VLC，强制停止 VLC；
 3. 打开 VLC，授予 root；在“媒体库 → 添加自定义路径”里填 `/data/喜鹊谋杀案` 这类路径；
 4. 原生浏览器和媒体库会通过挂载点访问；播放由 VLC 直接读 FUSE 文件。

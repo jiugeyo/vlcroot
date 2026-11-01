@@ -59,25 +59,6 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      # 缓存 debug keystore：保证每次构建出来的 APK 签名一致，
-      # 后续升级模块可以直接覆盖安装。
-      - name: Cache debug keystore
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore-v1
-
-      - name: Ensure debug keystore
-        run: |
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            mkdir -p "$HOME/.android"
-            keytool -genkeypair -v \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -87,34 +68,7 @@ jobs:
           java -version
           gradle --version
 
-      - name: Prepare signing keystore
-        env:
-          SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-        run: |
-          if [ -z "$SIGNING_KEY_BASE64" ]; then
-            echo "::error title=Missing SIGNING_KEY_BASE64::Add repository secret SIGNING_KEY_BASE64 (base64 of JGjiuge.key)"
-            exit 1
-          fi
-          if [ -z "$SIGNING_STORE_PASSWORD" ]; then
-            echo "::error title=Missing SIGNING_STORE_PASSWORD::Add repository secret SIGNING_STORE_PASSWORD (keystore password you choose)"
-            exit 1
-          fi
-          ALIAS="${SIGNING_KEY_ALIAS:-jgjiuge}"
-          echo "$SIGNING_KEY_BASE64" | base64 -d > "$RUNNER_TEMP/JGjiuge.key"
-          python3 scripts/extract_signing_key.py \
-            "$RUNNER_TEMP/JGjiuge.key" "$RUNNER_TEMP/release.p12" \
-            "$SIGNING_STORE_PASSWORD" "$ALIAS"
-          rm -f "$RUNNER_TEMP/JGjiuge.key"
-          {
-            echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.p12"
-            echo "RELEASE_STORE_PASSWORD=$SIGNING_STORE_PASSWORD"
-            echo "RELEASE_KEY_ALIAS=$ALIAS"
-            echo "RELEASE_KEY_PASSWORD=$SIGNING_STORE_PASSWORD"
-          } >> "$GITHUB_ENV"
-
-      - name: Build release APK
+      - name: Build unsigned release APK
         run: |
           set -o pipefail
           gradle :app:assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
@@ -128,6 +82,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: vlcroot-release-apk
+          name: vlcroot-unsigned-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error

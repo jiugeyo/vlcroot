@@ -63,7 +63,7 @@ git push -u origin main
 1. 打开 `https://github.com/jiugeyo/vlcroot/actions`
 2. 左侧 **build-apk** → **Run workflow** → **Run workflow**
 3. 等 5–10 分钟
-4. 点进这次运行 → 页面底部 **Artifacts** → 下载 `vlcroot-release-apk.zip`
+4. 点进这次运行 → 页面底部 **Artifacts** → 下载 `vlcroot-unsigned-apk.zip`，解压后用 MT 管理器签名
 5. 解压得到 `app-debug.apk`
 
 后续步骤（安装、LSPosed 启用、测试、排错）见

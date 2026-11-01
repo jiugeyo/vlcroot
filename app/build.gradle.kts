@@ -15,29 +15,11 @@ android {
         versionName = "1.0"
     }
 
-    signingConfigs {
-        create("release") {
-            val storePath = System.getenv("RELEASE_STORE_FILE")
-            if (!storePath.isNullOrBlank()) {
-                storeFile = file(storePath)
-                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "jgjiuge"
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
-                storeType = "PKCS12"
-            }
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false
-            // 优先用 CI 里由 JGjiuge.key 转换出来的 release keystore。
-            // 本地没有该 secret 时退回 debug key，仍可构建开发包。
-            signingConfig = if (!System.getenv("RELEASE_STORE_FILE").isNullOrBlank()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // 不配置 signingConfig：输出 app-release-unsigned.apk，
+            // 由用户后续用 MT 管理器注入自己的签名。
         }
     }
 

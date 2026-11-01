@@ -12,3 +12,6 @@ rootfsd/go.sum
 *.keystore
 *.p12
 *.key
+
+__pycache__/
+*.pyc
