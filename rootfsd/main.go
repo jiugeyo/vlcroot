@@ -160,6 +160,20 @@ func (h *handle) Release(ctx context.Context) syscall.Errno {
 	return 0
 }
 
+func startServer(mount, source string, uid, gid uint32, opts *fs.Options) (*fuse.Server, error) {
+	root := &node{src: source, mount: mount, uid: uid, gid: gid}
+	// 不用 fs.Mount：它内部会调用 WaitMount → pollHack，
+	// 在挂载点里 open(".go-fuse-epoll-hack")；Android 上这会走回自己的 FUSE，
+	// 服务端还没开始 Serve，直接自锁。
+	raw := fs.NewNodeFS(root, opts)
+	server, err := fuse.NewServer(raw, mount, &opts.MountOptions)
+	if err != nil {
+		return nil, err
+	}
+	go server.Serve()
+	return server, nil
+}
+
 func main() {
 	mount := flag.String("mount", "", "mount point")
 	source := flag.String("source", "/data", "source directory")
@@ -174,7 +188,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	root := &node{src: *source, mount: *mount, uid: uint32(*uid), gid: uint32(*gid)}
 	log.Printf("rootfsd mount=%s source=%s uid=%d", *mount, *source, *uid)
 
 	opts := &fs.Options{
@@ -191,12 +204,12 @@ func main() {
 		},
 	}
 
-	server, err := fs.Mount(*mount, root, opts)
+	server, err := startServer(*mount, *source, uint32(*uid), uint32(*gid), opts)
 	if err != nil {
 		// 某些内核/FUSE 版本不接受 context=，退回不带 SELinux 上下文的挂载
 		log.Printf("mount with context failed: %v; retry without context", err)
 		opts.MountOptions.Options = []string{"ro", "default_permissions"}
-		server, err = fs.Mount(*mount, root, opts)
+		server, err = startServer(*mount, *source, uint32(*uid), uint32(*gid), opts)
 	}
 	if err != nil {
 		log.Fatal(err)
