@@ -49,8 +49,8 @@
 2. 左侧选 **build-apk**。
 3. 右侧 **Run workflow** → 分支选 `main` → **Run workflow**。
 4. 等 5–10 分钟。首次构建要下载 Gradle/AGP/依赖，会慢一些。
-5. 构建完成后，点进这次运行，页面底部 **Artifacts** → 下载 `vlcroot-debug-apk.zip`。
-6. 解压得到 `app-debug.apk`。
+5. 构建完成后，点进这次运行，页面底部 **Artifacts** → 下载 `vlcroot-release-apk.zip`。
+6. 解压得到 `app-release.apk`。
 
 > 如果 Actions 页面提示 workflow 无权限：仓库 **Settings → Actions → General → Workflow permissions** 选 "Read and write permissions" 并保存。
 
@@ -141,9 +141,9 @@ VlcRoot: root server enabled=true, port=xxxxx
 3. 安装 **Gradle 8.9**（或使用 `gradle wrapper` 生成 wrapper）。
 4. 在工程根目录：
    ```bash
-   gradle :app:assembleDebug
+   gradle :app:assembleRelease
    ```
-5. APK 在 `app/build/outputs/apk/debug/app-debug.apk`。
+5. APK 在 `app/build/outputs/apk/release/app-release.apk`。
 
 > 这条路要求网络能访问 `dl.google.com` 和 `repo.maven.apache.org`；国内网络通常需要代理。
 

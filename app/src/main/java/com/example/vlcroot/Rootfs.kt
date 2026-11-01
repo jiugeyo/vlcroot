@@ -16,7 +16,7 @@ object Rootfs {
 
     // bump this whenever rootfsd binary changes, so an already-running old
     // mount gets replaced instead of silently reusing the previous binary.
-    private const val ASSET_VERSION = "3"
+    private const val ASSET_VERSION = "4"
 
     @Volatile
     var mounted = false
@@ -63,7 +63,7 @@ object Rootfs {
                 append(" -mount ${RootShell.quote(MOUNT)}")
                 append(" -source /data")
                 append(" -uid $uid -gid $uid")
-                append(" >> /data/local/tmp/vlcrootfs.log 2>&1")
+                append(" > /data/local/tmp/vlcrootfs.log 2>&1")
             }
             daemon = RootShell.startGlobal(cmd)
 

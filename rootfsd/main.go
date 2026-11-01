@@ -81,7 +81,6 @@ func (n *node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		return nil, syscall.EINVAL
 	}
 	p := filepath.Join(n.src, name)
-	log.Printf("lookup %q in %q -> %q", name, n.src, p)
 	if underMount(p, n.mount) {
 		return nil, syscall.ENOENT
 	}
@@ -102,7 +101,6 @@ func (n *node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	if underMount(n.src, n.mount) {
 		return nil, syscall.ENOENT
 	}
-	log.Printf("readdir %q", n.src)
 	entries, err := os.ReadDir(n.src)
 	if err != nil {
 		return nil, fs.ToErrno(err)
@@ -136,7 +134,6 @@ func (n *node) Open(ctx context.Context, flags uint32) (fs.FileHandle, uint32, s
 	if underMount(n.src, n.mount) {
 		return nil, 0, syscall.ENOENT
 	}
-	log.Printf("open %q flags=%#x", n.src, flags)
 	if flags&uint32(syscall.O_WRONLY|syscall.O_RDWR|syscall.O_CREAT|syscall.O_TRUNC) != 0 {
 		return nil, 0, syscall.EROFS
 	}

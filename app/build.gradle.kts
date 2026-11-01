@@ -11,13 +11,16 @@ android {
         applicationId = "com.example.vlcroot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "1.0"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 用 debug keystore 签 release：CI 里 debug keystore 有固定缓存，
+            // 能保证升级覆盖安装签名一致；这是侧载发行版，不上架 Play。
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
