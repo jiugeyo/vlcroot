@@ -12,7 +12,11 @@ import java.util.zip.ZipFile
  */
 object Rootfs {
 
-    const val MOUNT = "/data/data/org.videolan.vlc/rootfs"
+    const val MOUNT = "/data/data/org.videolan.vlc/files/rootfs"
+
+    // bump this whenever rootfsd binary changes, so an already-running old
+    // mount gets replaced instead of silently reusing the previous binary.
+    private const val ASSET_VERSION = "3"
 
     @Volatile
     var mounted = false
@@ -31,10 +35,17 @@ object Rootfs {
         if (mounted || starting) return
         starting = true
         try {
-            if (isWorking()) {
+            val version = RootShell.execGlobal(
+                "cat /data/local/tmp/vlcrootfs/version 2>/dev/null"
+            ).trim()
+            if (isWorking() && version == ASSET_VERSION) {
                 mounted = true
                 Log.i(ModuleMain.TAG, "rootfs already mounted")
                 return
+            }
+            if (isWorking()) {
+                // 旧二进制在跑：先卸掉挂载，再换新二进制重新挂
+                RootShell.execGlobal("umount -l ${RootShell.quote(MOUNT)} 2>/dev/null")
             }
 
             val binary = extract(context, moduleApk)
@@ -43,6 +54,10 @@ object Rootfs {
                 append("mkdir -p /data/local/tmp/vlcrootfs && ")
                 append("cp ${RootShell.quote(binary.absolutePath)} /data/local/tmp/vlcrootfs/rootfsd && ")
                 append("chmod 755 /data/local/tmp/vlcrootfs/rootfsd && ")
+                append("echo $ASSET_VERSION > /data/local/tmp/vlcrootfs/version && ")
+                append("mkdir -p ${RootShell.quote(MOUNT)} && ")
+                append("chown $uid:$uid ${RootShell.quote(MOUNT)} && ")
+                append("chmod 700 ${RootShell.quote(MOUNT)} && ")
                 append("umount -l ${RootShell.quote(MOUNT)} 2>/dev/null; ")
                 append("/data/local/tmp/vlcrootfs/rootfsd")
                 append(" -mount ${RootShell.quote(MOUNT)}")
@@ -72,14 +87,12 @@ object Rootfs {
 
     private fun extract(context: Context, moduleApk: String): File {
         val out = File(context.codeCacheDir, "rootfsd-arm64")
-        if (!out.exists() || out.length() == 0L) {
-            // 注意：这里要读模块 APK 的 assets，不是 VLC 的 assets
-            ZipFile(moduleApk).use { zip ->
-                val entry = zip.getEntry("assets/rootfsd-arm64")
-                    ?: throw IllegalStateException("rootfsd-arm64 missing in module apk")
-                zip.getInputStream(entry).use { input ->
-                    out.outputStream().use { output -> input.copyTo(output) }
-                }
+        // 总是重新解压：升级模块后 codeCache 里可能还是旧二进制
+        ZipFile(moduleApk).use { zip ->
+            val entry = zip.getEntry("assets/rootfsd-arm64")
+                ?: throw IllegalStateException("rootfsd-arm64 missing in module apk")
+            zip.getInputStream(entry).use { input ->
+                out.outputStream().use { output -> input.copyTo(output) }
             }
         }
         out.setExecutable(true, false)
