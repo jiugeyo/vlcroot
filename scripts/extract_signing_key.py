@@ -74,6 +74,21 @@ def main() -> None:
             check=True,
             env=env,
         )
+        key_pub = subprocess.check_output(
+            ["openssl", "pkey", "-in", str(key_pem_path), "-pubout"],
+            env=env,
+        )
+        cert_pub = subprocess.check_output(
+            ["openssl", "x509", "-in", str(cert_path), "-pubkey", "-noout"],
+            env=env,
+        )
+        if key_pub.split() != cert_pub.split():
+            fail("certificate and private key do not match")
+        subprocess.run(
+            ["openssl", "x509", "-in", str(cert_path), "-noout", "-subject", "-dates"],
+            check=True,
+            env=env,
+        )
         subprocess.run(
             [
                 "openssl", "pkcs12", "-export",
