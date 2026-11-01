@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:description="@string/module_desc"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <!-- 壳 provider：让 content:// 形式的路径合法，实际读取由 hook 转到本机 HTTP -->
+        <provider
+            android:name=".RootPathProvider"
+            android:authorities="com.example.vlcroot.file"
+            android:exported="true"
+            android:grantUriPermissions="true" />
+
+        <!-- /data 文件选择器（模块自己的界面，独立进程） -->
+        <activity
+            android:name=".PickerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
