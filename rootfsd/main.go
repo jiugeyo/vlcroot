@@ -146,23 +146,25 @@ func main() {
 
 	root := &node{src: *source, uid: uint32(*uid), gid: uint32(*gid)}
 
-	opts := &fuse.MountOptions{
-		AllowOther:        true,
-		DirectMountStrict: true,
-		DirectMountFlags:  syscall.MS_RDONLY | syscall.MS_NOSUID | syscall.MS_NODEV,
-		MaxWrite:          1 << 20,
-		MaxReadAhead:      1 << 17,
-		FsName:            "vlcrootfs",
-		Name:              "vlcrootfs",
-		DisableXAttrs:     true,
-		Options:           []string{"ro", "default_permissions", "context=u:object_r:app_data_file:s0"},
+	opts := &fs.Options{
+		MountOptions: fuse.MountOptions{
+			AllowOther:        true,
+			DirectMountStrict: true,
+			DirectMountFlags:  syscall.MS_RDONLY | syscall.MS_NOSUID | syscall.MS_NODEV,
+			MaxWrite:          1 << 20,
+			MaxReadAhead:      1 << 17,
+			FsName:            "vlcrootfs",
+			Name:              "vlcrootfs",
+			DisableXAttrs:     true,
+			Options:           []string{"ro", "default_permissions", "context=u:object_r:app_data_file:s0"},
+		},
 	}
 
 	server, err := fs.Mount(*mount, root, opts)
 	if err != nil {
 		// 某些内核/FUSE 版本不接受 context=，退回不带 SELinux 上下文的挂载
 		log.Printf("mount with context failed: %v; retry without context", err)
-		opts.Options = []string{"ro", "default_permissions"}
+		opts.MountOptions.Options = []string{"ro", "default_permissions"}
 		server, err = fs.Mount(*mount, root, opts)
 	}
 	if err != nil {
