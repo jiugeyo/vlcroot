@@ -1,0 +1,6 @@
+id=vlcrootfs
+name=VLC RootFS (FUSE)
+version=0.1
+versionCode=1
+author=jiugeyo
+description=Read-only FUSE mirror of /data for VLC. Makes VLC's native browser and media library see /data as normal files.
