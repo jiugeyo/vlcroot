@@ -32,6 +32,7 @@ rmdir "$MOUNT" 2>/dev/null
 mkdir -p "$MOUNT"
 chown "$VUID:$VGID" "$MOUNT" 2>>"$LOG"
 chmod 700 "$MOUNT" 2>>"$LOG"
+chmod 755 "$MODDIR/rootfsd" 2>>"$LOG"
 
 "$MODDIR/rootfsd" -mount "$MOUNT" -source /data -uid "$VUID" -gid "$VGID" >> "$LOG" 2>&1 &
 echo "rootfsd pid=$!" >> "$LOG"
