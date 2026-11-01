@@ -28,6 +28,16 @@ object RootShell {
     }
 
     /**
+     * 在全局 mount namespace 下启动一个长期运行的 root 进程（rootfsd）。
+     * 不读取 stdout（命令内部已重定向到日志文件），进程引用由调用方保存。
+     */
+    fun startGlobal(command: String): Process? = runCatching {
+        ProcessBuilder(su(), "-M", "-c", command)
+            .redirectErrorStream(true)
+            .start()
+    }.getOrNull()
+
+    /**
      * 执行一条 su 命令。
      * 用独立线程持续读 stdout，避免大输出（ls/cat）把管道写满导致死锁；
      * 等待超时则 destroy 子进程（例如 Magisk 授权弹窗一直没人点）。

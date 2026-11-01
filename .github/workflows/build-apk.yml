@@ -18,6 +18,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: false
+
+      - name: Build rootfsd asset
+        run: |
+          cd rootfsd
+          go mod tidy
+          mkdir -p ../app/src/main/assets
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+            go build -trimpath -ldflags="-s -w" -o ../app/src/main/assets/rootfsd-arm64 .
+
       # GitHub 的 ubuntu 镜像自带 Android SDK，直接用，避免第三方 action 失效
       - name: Configure Android SDK
         run: |

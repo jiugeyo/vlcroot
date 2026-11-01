@@ -18,6 +18,8 @@ object PathPolicy {
         ROOT_PREFIXES.any { path.startsWith(it) }
 
     fun needsRoot(path: String): Boolean {
+        // FUSE 挂载点下的文件对 VLC 已经是普通可读文件，不要再走 HTTP
+        if (Rootfs.isUnderMount(path)) return false
         if (!looksLikeRootFile(path)) return false
         val file = File(path)
         return !file.canRead() || (file.isDirectory && file.list() == null)
@@ -31,8 +33,11 @@ object PathPolicy {
      * 播放列表：即使可读也桥接，否则 libVLC 会自己解析本地 m3u，
      * 其中指向 /data 的条目会在 native 层 open 失败。
      */
-    fun needsBridge(path: String): Boolean = needsRoot(path) || isPlaylist(path)
+    fun needsBridge(path: String): Boolean {
+        if (Rootfs.isUnderMount(path)) return false
+        return needsRoot(path) || isPlaylist(path)
+    }
 
     fun allowed(path: String): Boolean =
-        looksLikeRootFile(path) || isPlaylist(path)
+        Rootfs.isUnderMount(path) || looksLikeRootFile(path) || isPlaylist(path)
 }
