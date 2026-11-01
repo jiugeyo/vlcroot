@@ -75,7 +75,16 @@ jobs:
           gradle --version
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Annotate build errors
+        if: failure()
+        run: |
+          grep -nE "^e: |error:|FAILURE:|What went wrong" build.log | head -40 | while IFS= read -r line; do
+            echo "::error file=build.log::$line"
+          done
 
       - uses: actions/upload-artifact@v4
         with:

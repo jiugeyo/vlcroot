@@ -54,12 +54,14 @@ class ModuleMain : XposedModule() {
         val method = clazz.getDeclaredMethod("onCreate")
         hook(method).intercept { chain ->
             chain.proceed()
-            val app = chain.thisObject as? Context ?: return@intercept
-            val apk = runCatching { moduleApplicationInfo.sourceDir }.getOrNull() ?: return@intercept
-            Thread {
-                runCatching { Rootfs.ensure(app, apk) }
-                    .onFailure { log(Log.ERROR, TAG, "rootfs: ${it.message}") }
-            }.apply { isDaemon = true }.start()
+            val app = chain.thisObject as? Context
+            val apk = runCatching { moduleApplicationInfo.sourceDir }.getOrNull()
+            if (app != null && apk != null) {
+                Thread {
+                    runCatching { Rootfs.ensure(app, apk) }
+                        .onFailure { log(Log.ERROR, TAG, "rootfs: ${it.message}") }
+                }.apply { isDaemon = true }.start()
+            }
         }
     }
 
