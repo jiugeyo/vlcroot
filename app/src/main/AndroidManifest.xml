@@ -6,19 +6,20 @@
     <application
         android:allowBackup="false"
         android:description="@string/module_desc"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <!-- 壳 provider：让 content:// 形式的路径合法，实际读取由 hook 转到本机 HTTP -->
+        <!-- 壳 provider：让 content:// 形式路径先通过 VLC 的合法性检查，实际读取由 hook 完成 -->
         <provider
             android:name=".RootPathProvider"
             android:authorities="com.example.vlcroot.file"
             android:exported="true"
             android:grantUriPermissions="true" />
 
-        <!-- /data 文件选择器（模块自己的界面，独立进程） -->
         <activity
-            android:name=".PickerActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
@@ -171,11 +173,37 @@ func startServer(mount, source string, uid, gid uint32, opts *fs.Options) (*fuse
 	return server, nil
 }
 
+// watchParent 让 rootfsd 的生命周期跟随 VLC 主进程。
+//
+// 不能用 PDEATHSIG：rootfsd 的父进程是 su，不是 VLC。VLC 被后台杀/强停后
+// 这里轮询 /proc/<pid>；进程消失就退出。故意不在退出时 umount：新 VLC 进程
+// 启动时会先 lazy-umount 旧挂载再挂新的，避免旧 daemon 把新挂载误卸载。
+func watchParent(pid int, name string) {
+	if pid <= 0 {
+		return
+	}
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+		if err != nil {
+			log.Printf("parent pid %d gone; exit", pid)
+			os.Exit(0)
+		}
+		if name != "" && len(cmdline) > 0 && !strings.Contains(string(cmdline), name) {
+			log.Printf("parent pid %d no longer %q; exit", pid, name)
+			os.Exit(0)
+		}
+	}
+}
+
 func main() {
 	mount := flag.String("mount", "", "mount point")
 	source := flag.String("source", "/data", "source directory")
 	uid := flag.Uint("uid", 0, "file owner uid")
 	gid := flag.Uint("gid", 0, "file owner gid")
+	parentPid := flag.Int("parent-pid", 0, "exit when this pid disappears")
+	parentName := flag.String("parent-name", "", "expected substring in /proc/<pid>/cmdline")
 	flag.Parse()
 
 	if *mount == "" {
@@ -211,5 +239,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	go watchParent(*parentPid, *parentName)
 	server.Wait()
 }

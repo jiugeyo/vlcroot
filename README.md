@@ -2,8 +2,10 @@
 
 **让官方 VLC for Android 直接浏览、扫描、播放 `/data` 下的文件。**
 
+> 应用名：**VLC 数据访问**（模块包名仍是 `com.example.vlcroot`）
+
 [![Build](https://github.com/jiugeyo/vlcroot/actions/workflows/build-apk.yml/badge.svg)](https://github.com/jiugeyo/vlcroot/actions/workflows/build-apk.yml)
-[![Version](https://img.shields.io/badge/version-1.0-blue)](#更新日志)
+[![Version](https://img.shields.io/badge/version-1.1-blue)](#更新日志)
 [![Android](https://img.shields.io/badge/Android-8%2B-3DDC84?logo=android&logoColor=white)](#兼容性)
 [![ABI](https://img.shields.io/badge/ABI-arm64--v8a-orange)](#兼容性)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -23,6 +25,7 @@
 | 外挂字幕 | ✅ | 视 VLC 版本，hook 字幕加载路径 |
 | HTTP 兜底播放 | ✅ | 非 FUSE 场景仍可用 `127.0.0.1` 分块读 |
 | 写入 `/data` | ❌ | 只读镜像，避免误删系统数据 |
+| VLC 退出后自动回收 | ✅ | `rootfsd` 监听 VLC 主进程，进程结束即退出 |
 | 32 位设备 | ❌ | 目前只提供 `arm64-v8a` |
 
 > 不需要重编译 VLC，不需要改 VLC 签名，也不需要 Magisk 模块。所有改动都在 LSPosed 模块里。
@@ -233,7 +236,7 @@ app/src/main/java/com/example/vlcroot/
   CallSite.kt          入队/播放阶段判定
   RootUris.kt          content:// 编码
   RootPathProvider.kt  壳 provider
-  PickerActivity.kt    /data 选择器
+  MainActivity.kt      模块首页（使用说明 / 打开 VLC）
 
 rootfsd/
   main.go              Go 只读 FUSE 镜像（go-fuse v2）
@@ -261,6 +264,14 @@ scripts/
 ---
 
 ## 更新日志
+
+### 1.1
+
+- `rootfsd` 监听 VLC 主进程 PID，VLC 后台被杀/强停后自动退出；
+- 挂载增加 owner PID 校验，新 VLC 进程会清理旧挂载再重挂；
+- 重做模块首页：移除 `/data` 路径列表/调试 UI，改为使用说明和“打开 VLC”入口；
+- 应用名改为 **VLC 数据访问**，新增自适应图标；
+- 版本号 1.1（versionCode 3）。
 
 ### 1.0
 

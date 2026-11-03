@@ -76,7 +76,21 @@ if h == nil {
 
 构建时 `scripts/patch_go_fuse.py` 会修改 vendored go-fuse：未知 opcode 挂一个 fallback handler，让它走正常序列化路径回 `ENOSYS`。内核收到后会 fallback 到 `getattr`，扫描继续。
 
-## 6. 为什么不用 Magisk 模块
+## 6. 生命周期：VLC 死，rootfsd 也必须死
+
+`rootfsd` 是由 `su -M` 拉起的独立进程，和 VLC 没有父子关系，所以不能依赖应用回调或 PDEATHSIG。模块启动时把 VLC 主进程 PID 传进去：
+
+```
+rootfsd -parent-pid <VLC pid> -parent-name org.videolan.vlc
+```
+
+`rootfsd` 每 2 秒检查 `/proc/<pid>/cmdline`；进程消失或 PID 被别的进程复用时立即 `os.Exit(0)`。
+
+它**故意不在退出时 umount**：如果新 VLC 进程刚好已经挂上了新 mount，旧 daemon 的 umount 会把新 mount 卸掉。旧挂载交给新进程的 `ensure()` 做 `umount -l`，避免竞态。
+
+同时模块写入 `/data/local/tmp/vlcrootfs/owner`（VLC PID），新进程发现 owner 不是自己时不会复用旧挂载，而是清理后重挂。
+
+## 7. 为什么不用 Magisk 模块
 
 模块只做两件事：LSPosed hook + 在 VLC 进程里 `su -M` 起一个进程。没有常驻服务、没有开机脚本、没有 mount 配置文件需要维护。这样：
 
@@ -84,7 +98,7 @@ if h == nil {
 - 换 root 管理器不需要重装 Magisk 模块；
 - 卸载模块后不会残留系统级挂载（重启即清）。
 
-## 7. 安全边界
+## 8. 安全边界
 
 - FUSE 只读，不能通过它写/删 `/data`；
 - 只镜像 `/data`，不镜像 `/`；

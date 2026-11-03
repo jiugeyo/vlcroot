@@ -1,6 +1,7 @@
 package com.example.vlcroot
 
 import android.content.Context
+import android.os.Process as AndroidProcess
 import android.util.Log
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -16,7 +17,7 @@ object Rootfs {
 
     // bump this whenever rootfsd binary changes, so an already-running old
     // mount gets replaced instead of silently reusing the previous binary.
-    private const val ASSET_VERSION = "4"
+    private const val ASSET_VERSION = "5"
 
     @Volatile
     var mounted = false
@@ -35,34 +36,38 @@ object Rootfs {
         if (mounted || starting) return
         starting = true
         try {
+            val myPid = AndroidProcess.myPid()
             val version = RootShell.execGlobal(
                 "cat /data/local/tmp/vlcrootfs/version 2>/dev/null"
             ).trim()
-            if (isWorking() && version == ASSET_VERSION) {
+            val owner = RootShell.execGlobal(
+                "cat /data/local/tmp/vlcrootfs/owner 2>/dev/null"
+            ).trim()
+            if (isWorking() && version == ASSET_VERSION && owner == myPid.toString()) {
                 mounted = true
                 Log.i(ModuleMain.TAG, "rootfs already mounted")
                 return
-            }
-            if (isWorking()) {
-                // 旧二进制在跑：先卸掉挂载，再换新二进制重新挂
-                RootShell.execGlobal("umount -l ${RootShell.quote(MOUNT)} 2>/dev/null")
             }
 
             val binary = extract(context, moduleApk)
             val uid = context.applicationInfo.uid
             val cmd = buildString {
+                // 先卸旧挂载，再碰挂载点；旧 daemon 会通过 parent-pid 自行退出
+                append("umount -l ${RootShell.quote(MOUNT)} 2>/dev/null; ")
                 append("mkdir -p /data/local/tmp/vlcrootfs && ")
                 append("cp ${RootShell.quote(binary.absolutePath)} /data/local/tmp/vlcrootfs/rootfsd && ")
                 append("chmod 755 /data/local/tmp/vlcrootfs/rootfsd && ")
+                append("echo $myPid > /data/local/tmp/vlcrootfs/owner && ")
                 append("echo $ASSET_VERSION > /data/local/tmp/vlcrootfs/version && ")
                 append("mkdir -p ${RootShell.quote(MOUNT)} && ")
                 append("chown $uid:$uid ${RootShell.quote(MOUNT)} && ")
                 append("chmod 700 ${RootShell.quote(MOUNT)} && ")
-                append("umount -l ${RootShell.quote(MOUNT)} 2>/dev/null; ")
                 append("/data/local/tmp/vlcrootfs/rootfsd")
                 append(" -mount ${RootShell.quote(MOUNT)}")
                 append(" -source /data")
                 append(" -uid $uid -gid $uid")
+                append(" -parent-pid $myPid")
+                append(" -parent-name ${RootShell.quote(context.packageName)}")
                 append(" > /data/local/tmp/vlcrootfs.log 2>&1")
             }
             daemon = RootShell.startGlobal(cmd)
